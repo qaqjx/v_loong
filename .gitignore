@@ -1,1 +1,4 @@
 .DS_Store
+data/*
+loong-venv/*
+*.pyc

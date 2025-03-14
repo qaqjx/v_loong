@@ -21,7 +21,7 @@ def get_content(args, item, doc_name, idx):
     global file_handle_cache
     doc_type, doc_level = item['type'], item['level']
     docPath = Path(args.doc_path) / doc_type
-
+    doc = ""
     if doc_type == 'financial':
         if str(doc_level).strip() != '4':
             _file = glob.glob(f"{docPath}/*2024-{doc_name}*.txt")[0]
@@ -62,7 +62,6 @@ def get_content(args, item, doc_name, idx):
 
     else:
         raise "doc_type not valid!"
-
     return doc
 
 
@@ -114,6 +113,40 @@ def get_generate_prompt(args, item):
     item['docs'] = doc_str
     item['prompt'] = prompt_template
     return item
+
+def get_docs(args, item):
+    replace_dict = {"{question}": item['question'], "{instruction}": item['instruction']}
+    prompt_template = item['prompt_template']
+    for k, v in replace_dict.items():
+        prompt_template = prompt_template.replace(k, v)
+
+    len_prompt_template = token_length(prompt_template) - token_length("{docs}")
+    is_shuffle = item.get("shuffle_doc", True)
+
+    docs = item['doc'] if not args.rag else item["recall_chunks"][:args.rag_num]
+    docs_list = []
+
+    if args.rag:
+        for doc in docs:
+            if len_prompt_template + sum(token_length(s) for s in docs_list) + token_length(doc) > args.max_length:
+                continue
+            docs_list.append(doc)
+    else:
+        # read content from given doc names
+        contents = get_contents(args, item, docs)
+        # shuffle
+        if is_shuffle and item['type'] == 'financial':
+            random.shuffle(contents)
+        for content in contents:
+            if len_prompt_template + sum(token_length(s) for s in docs_list) + token_length(content) > args.max_length:
+                continue
+            docs_list.append(content)
+
+    doc_str = get_doc_str(args, item, prompt_template)
+    prompt_template = prompt_template.replace("{docs}", doc_str)
+    item['docs'] = doc_str
+    item['prompt'] = prompt_template
+    return docs_list
 
 
 def get_generate_prompts(args):
