@@ -10,6 +10,8 @@ import time
 from openai import OpenAI
 from anthropic import Anthropic
 import google.generativeai as genai
+from vllm import LLM as vLLM, SamplingParams as vSamplingParams
+
 
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -107,9 +109,24 @@ def api(prompt, output_path, config, tag):
     with open(output_path, 'a', encoding='utf-8') as fw:
         fw.write(json.dumps(result, ensure_ascii=False) + '\n')
 
+def model(model, prompt, output_path, tag):
+    sampling_params_generation = vSamplingParams(temperature=0.0,
+                                    top_p=0.95,
+                                    max_tokens=300)    
+    output = model.generate(prompt,sampling_params_generation)
+    result = prompt.copy()
+    result[tag] = output[0].outputs[0].text or ""
+    with open(output_path, 'a', encoding='utf-8') as fw:
+        fw.write(json.dumps(result, ensure_ascii=False) + '\n')
 
 def generate(prompts, config, output_path, process_num, tag):
     func = partial(api, output_path=output_path, config=config, tag=tag)
     with multiprocessing.Pool(processes=process_num) as pool:
         for _ in tqdm(pool.imap(func, prompts), total=len(prompts)):
+            pass
+
+def generate_model(model, prompts, output_path, process_num, tag):
+    func = partial(model, output_path=output_path, tag=tag)
+    with multiprocessing.Pool(processes=process_num) as pool:
+        for _ in tqdm(pool.imap(func, model, prompts), total=len(prompts)):
             pass

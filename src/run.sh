@@ -57,6 +57,7 @@ ARGS+=(
 
 # Execute in order
 LMCACHE_CONFIG_FILE=example_blending.yaml python blend_loong.py "${ARGS[@]}"
+# python step1_load_data.py "${ARGS[@]}"
 # python step2_model_generate.py "${ARGS[@]}"
 # python step3_model_evaluate.py "${ARGS[@]}"
 # python step4_cal_metric.py "${ARGS[@]}"
