@@ -3,5 +3,3 @@ local_device: "cpu"
 
 # Enables KV blending
 enable_blending: True
-# Whether retrieve() is pipelined or not
-pipelined_backend: False

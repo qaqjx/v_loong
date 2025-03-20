@@ -12,12 +12,11 @@ from utils.args import parse_arguments
 from utils.prompt import get_generate_prompt,get_docs
 from utils.util import count_lines, logger
 from blend_utils import compute_rl
-from lmcache_vllm.blend_adapter import (append_separator,
+from lmcache_vllm.blend_adapter import (OfflineKVPreCompute,append_separator,
                                         combine_input_prompt_chunks)
 from vllm import LLM as vLLM, SamplingParams as vSamplingParams
-
 # Update the model_name to switch the remote URL
-model_name = "Qwen/Qwen2-7B"
+model_name = "mistralai/Mistral-Nemo-Base-2407"
 
 def split_text_by_fragments(A, B):
     # 存储分割点及其对应的内容
@@ -53,13 +52,6 @@ def split_text_by_fragments(A, B):
     return result
 
 
-def precompute_kv(text_chunk, llm):
-    sampling_params_prefix = SamplingParams(temperature=0.0,
-                                            top_p=0.95,
-                                            max_tokens=1)
-    text_chunk = append_separator(text_chunk)
-    llm.generate([text_chunk], sampling_params_prefix)
-
 if __name__ == '__main__':
     args = parse_arguments()
     random.seed(args.seed)
@@ -72,7 +64,7 @@ if __name__ == '__main__':
     f1_full = []
 
     ## load data and evaluate
-    llm = LLM(model=model_name, gpu_memory_utilization=0.6,quantization="fp8")
+    llm = LLM(model=model_name, gpu_memory_utilization=0.8,tensor_parallel_size=1, quantization="fp8")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     llm.set_tokenizer(tokenizer)
 
@@ -84,6 +76,7 @@ if __name__ == '__main__':
         docs = item["doc"]
         get_generate_prompt(args, item)  
         print("docs",len(docs))
+        offline_precompute = OfflineKVPreCompute(llm)
 
         docs_str = []
         for doc in docs:
@@ -93,9 +86,7 @@ if __name__ == '__main__':
                 doc_name = content.split('\n', 1)[0].strip("#").strip()
                 doc_str = f"{doc_name}\n" + content + "\n\n"
                 docs_str.append(doc_str)
-                # doc_str = append_separator(doc_str)
-                precompute_kv(doc_str, llm)
-
+                offline_precompute.precompute_kv(doc_str)
 
         time.sleep(3)
         sampling_params_generation = SamplingParams(temperature=0.0,
@@ -114,11 +105,11 @@ if __name__ == '__main__':
 
         # print("user_prompt",user_prompt)
 
-        output = llm.generate(user_prompt[:30000], sampling_params_generation)
+        output = llm.generate(user_prompt, sampling_params_generation)
 
 
         res = output[0].outputs[0].text
-        print("res", res[:200])  # Output the first 200 characters of res
+        print("res", res)  # Output the first 200 characters of res
         answers = item["answer"]
         print("answers",answers)
         # ttft_blend.append(ttft)

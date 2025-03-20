@@ -3,3 +3,4 @@ data/*
 loong-venv/*
 *.pyc
 my_venv/
+cache-venv/
