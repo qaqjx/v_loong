@@ -62,6 +62,7 @@ def get_content(args, item, doc_name, idx):
 
     else:
         raise "doc_type not valid!"
+    doc = "[[TAOTIE]]" + doc + "[[TAOTIE]]"
     return doc
 
 
